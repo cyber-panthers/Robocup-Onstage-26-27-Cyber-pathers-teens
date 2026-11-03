@@ -1,0 +1,76 @@
+
+#include <Adafruit_NeoPixel.h>
+
+const int trigPin = 5;
+const int echoPin = 6;
+const int ledPower = 7;
+const int fitaPin = 3;
+const int led4 = 4;
+
+const int quantidadeLeds = 30;
+
+Adafruit_NeoPixel fita(
+  quantidadeLeds,
+  fitaPin,
+  NEO_GRB + NEO_KHZ800
+);
+
+bool corAzul = false;
+bool maoDetectada = false;
+bool ledAcendeu = false;
+
+void setup() {
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPower, OUTPUT);
+  pinMode(led4, OUTPUT);
+
+  digitalWrite(ledPower, HIGH);
+  digitalWrite(led4, LOW);
+
+  fita.begin();
+  fita.clear();
+  fita.show();
+}
+
+void loop() {
+  // Medir distância
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duracao = pulseIn(echoPin, HIGH, 30000);
+  int distancia = duracao * 0.034 / 2;
+
+  // Detectar a mão a até 20 cm
+  bool detectouAgora = (distancia > 0 && distancia <= 20);
+
+  // Executar apenas uma vez por passada
+  if (detectouAgora && !maoDetectada) {
+
+    // Acender o LED do pino 4 na primeira passada
+    if (!ledAcendeu) {
+      digitalWrite(led4, HIGH);
+      ledAcendeu = true;
+    }
+
+    // Alternar a cor da fita
+    corAzul = !corAzul;
+
+    if (corAzul) {
+      fita.fill(fita.Color(0, 0, 255)); // Azul
+    } else {
+      fita.fill(fita.Color(255, 80, 0)); // Laranja
+    }
+
+    fita.show();
+  }
+
+  // Esperar a mão sair para detectar outra passada
+  maoDetectada = detectouAgora;
+
+  delay(50);
+}
