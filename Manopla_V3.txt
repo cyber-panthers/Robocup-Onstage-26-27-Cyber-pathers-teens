@@ -1,0 +1,325 @@
+#include <Wire.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_NeoPixel.h>
+
+Adafruit_MPU6050 mpu;
+
+
+// =====================================================
+// MOTOR
+// =====================================================
+
+const int MOTOR_ABRIR  = 6;
+const int MOTOR_FECHAR = 7;
+
+
+// =====================================================
+// LEDS (fita endereçável WS2812B / NeoPixel)
+// =====================================================
+
+const int PIN_LEDS = 4;
+const int NUM_LEDS = 30;
+
+Adafruit_NeoPixel leds(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+
+
+// =====================================================
+// CONFIGURAÇÃO
+// =====================================================
+
+const unsigned long TEMPO_ABRIR  = 2500;  // motores abrindo: 2,5 s
+const unsigned long TEMPO_FECHAR = 2500;
+const unsigned long TEMPO_ESPERA = 2500;
+
+// Velocidade mínima de rotação para reconhecer
+// unidade: rad/s
+const float LIMITE_GIRO = 1.5;
+
+// Quantas leituras precisam confirmar o movimento
+const int CONFIRMACOES = 3;
+
+
+// =====================================================
+// FILTRO
+// =====================================================
+
+const float FILTRO = 0.20;
+
+float gyroFiltrado = 0;
+
+
+// =====================================================
+// CONTROLE
+// =====================================================
+
+int contadorPositivo = 0;
+int contadorNegativo = 0;
+
+unsigned long ultimoComando = 0;
+
+
+// =====================================================
+// LEDS
+// =====================================================
+
+void ledsAzul() {
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds.setPixelColor(i, leds.Color(0, 0, 255));
+  }
+
+  leds.show();
+}
+
+void ledsApagar() {
+
+  leds.clear();
+  leds.show();
+}
+
+
+// =====================================================
+// MOTOR PARAR
+// =====================================================
+
+void pararMotor() {
+
+  digitalWrite(MOTOR_ABRIR, LOW);
+  digitalWrite(MOTOR_FECHAR, LOW);
+}
+
+
+// =====================================================
+// ABRIR
+// =====================================================
+
+void abrirMotor() {
+
+  Serial.println();
+  Serial.println("==============================");
+  Serial.println("GIRO POSITIVO");
+  Serial.println(">>> MOTOR ABRINDO");
+  Serial.println("==============================");
+
+  ledsAzul();
+
+  digitalWrite(MOTOR_ABRIR, HIGH);
+  digitalWrite(MOTOR_FECHAR, LOW);
+
+  delay(TEMPO_ABRIR);
+
+  pararMotor();
+  ledsApagar();
+}
+
+
+// =====================================================
+// FECHAR
+// =====================================================
+
+void fecharMotor() {
+
+  Serial.println();
+  Serial.println("==============================");
+  Serial.println("GIRO NEGATIVO");
+  Serial.println(">>> MOTOR FECHANDO");
+  Serial.println("==============================");
+
+  digitalWrite(MOTOR_ABRIR, LOW);
+  digitalWrite(MOTOR_FECHAR, HIGH);
+
+  delay(TEMPO_FECHAR);
+
+  pararMotor();
+}
+
+
+// =====================================================
+// SETUP
+// =====================================================
+
+void setup() {
+
+  Serial.begin(9600);
+
+  Wire.begin();
+
+  pinMode(MOTOR_ABRIR, OUTPUT);
+  pinMode(MOTOR_FECHAR, OUTPUT);
+
+  pararMotor();
+
+  leds.begin();
+  leds.setBrightness(100);  // 0 a 255
+  ledsApagar();
+
+
+  Serial.println("Iniciando MPU6050...");
+
+
+  if (!mpu.begin()) {
+
+    Serial.println("ERRO: MPU6050 nao encontrado!");
+
+    while (1) {
+      delay(100);
+    }
+  }
+
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+
+
+  Serial.println("MPU6050 encontrado.");
+  Serial.println();
+  Serial.println("==============================");
+  Serial.println("SISTEMA PRONTO");
+  Serial.println("==============================");
+  Serial.println();
+}
+
+
+// =====================================================
+// LOOP
+// =====================================================
+
+void loop() {
+
+  sensors_event_t a, g, temp;
+
+  mpu.getEvent(&a, &g, &temp);
+
+
+  // ===================================================
+  // GIROSCÓPIO
+  // ===================================================
+
+  float gx = g.gyro.x;
+  float gy = g.gyro.y;
+  float gz = g.gyro.z;
+
+
+  // ===================================================
+  // FILTRO DO EIXO Z
+  // ===================================================
+
+  gyroFiltrado =
+    gyroFiltrado * (1.0 - FILTRO)
+    +
+    gz * FILTRO;
+
+
+  // ===================================================
+  // MONITOR SERIAL
+  // ===================================================
+
+  Serial.print("GX: ");
+  Serial.print(gx, 2);
+
+  Serial.print(" | GY: ");
+  Serial.print(gy, 2);
+
+  Serial.print(" | GZ: ");
+  Serial.print(gz, 2);
+
+  Serial.print(" | GZ filtrado: ");
+  Serial.println(gyroFiltrado, 2);
+
+
+  // ===================================================
+  // ESPERA DE 2,5 SEGUNDOS
+  // ===================================================
+
+  if (millis() - ultimoComando < TEMPO_ESPERA) {
+
+    contadorPositivo = 0;
+    contadorNegativo = 0;
+
+    delay(15);
+
+    return;
+  }
+
+
+  // ===================================================
+  // GIRO POSITIVO
+  // ===================================================
+
+  if (gyroFiltrado > LIMITE_GIRO) {
+
+    contadorPositivo++;
+    contadorNegativo = 0;
+
+    Serial.print("GIRO POSITIVO: ");
+    Serial.println(contadorPositivo);
+  }
+
+
+  // ===================================================
+  // GIRO NEGATIVO
+  // ===================================================
+
+  else if (gyroFiltrado < -LIMITE_GIRO) {
+
+    contadorNegativo++;
+    contadorPositivo = 0;
+
+    Serial.print("GIRO NEGATIVO: ");
+    Serial.println(contadorNegativo);
+  }
+
+
+  // ===================================================
+  // SEM GIRO
+  // ===================================================
+
+  else {
+
+    contadorPositivo = 0;
+    contadorNegativo = 0;
+  }
+
+
+  // ===================================================
+  // POSITIVO = ABRIR
+  // ===================================================
+
+  if (contadorPositivo >= CONFIRMACOES) {
+
+    abrirMotor();
+
+    contadorPositivo = 0;
+    contadorNegativo = 0;
+
+    ultimoComando = millis();
+
+    Serial.println("Aguardando 2,5 segundos...");
+
+    return;
+  }
+
+
+  // ===================================================
+  // NEGATIVO = FECHAR
+  // ===================================================
+
+  if (contadorNegativo >= CONFIRMACOES) {
+
+    fecharMotor();
+
+    contadorPositivo = 0;
+    contadorNegativo = 0;
+
+    ultimoComando = millis();
+
+    Serial.println("Aguardando 2,5 segundos...");
+
+    return;
+  }
+
+
+  delay(15);
+}
