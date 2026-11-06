@@ -5,28 +5,24 @@
 
 Adafruit_MPU6050 mpu;
 
-
-// =====================================================
+// =========
 // MOTOR
-// =====================================================
 
 const int MOTOR_ABRIR  = 6;
 const int MOTOR_FECHAR = 7;
 
 
-// =====================================================
-// LEDS (fita endereçável WS2812B / NeoPixel)
-// =====================================================
+// =============
+// LEDS FITA
 
 const int PIN_LEDS = 4;
 const int NUM_LEDS = 30;
 
 Adafruit_NeoPixel leds(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
 
-
-// =====================================================
+// ===============
 // CONFIGURAÇÃO
-// =====================================================
+
 
 const unsigned long TEMPO_ABRIR  = 2500;  // motores abrindo: 2,5 s
 const unsigned long TEMPO_FECHAR = 2500;
@@ -40,18 +36,16 @@ const float LIMITE_GIRO = 1.5;
 const int CONFIRMACOES = 3;
 
 
-// =====================================================
+// =========
 // FILTRO
-// =====================================================
 
 const float FILTRO = 0.20;
 
 float gyroFiltrado = 0;
 
 
-// =====================================================
+// ============
 // CONTROLE
-// =====================================================
 
 int contadorPositivo = 0;
 int contadorNegativo = 0;
@@ -59,9 +53,8 @@ int contadorNegativo = 0;
 unsigned long ultimoComando = 0;
 
 
-// =====================================================
+// ======
 // LEDS
-// =====================================================
 
 void ledsAzul() {
 
@@ -79,9 +72,8 @@ void ledsApagar() {
 }
 
 
-// =====================================================
+// =============
 // MOTOR PARAR
-// =====================================================
 
 void pararMotor() {
 
@@ -90,17 +82,10 @@ void pararMotor() {
 }
 
 
-// =====================================================
+// =======
 // ABRIR
-// =====================================================
 
 void abrirMotor() {
-
-  Serial.println();
-  Serial.println("==============================");
-  Serial.println("GIRO POSITIVO");
-  Serial.println(">>> MOTOR ABRINDO");
-  Serial.println("==============================");
 
   ledsAzul();
 
@@ -114,17 +99,10 @@ void abrirMotor() {
 }
 
 
-// =====================================================
+// ==========
 // FECHAR
-// =====================================================
 
 void fecharMotor() {
-
-  Serial.println();
-  Serial.println("==============================");
-  Serial.println("GIRO NEGATIVO");
-  Serial.println(">>> MOTOR FECHANDO");
-  Serial.println("==============================");
 
   digitalWrite(MOTOR_ABRIR, LOW);
   digitalWrite(MOTOR_FECHAR, HIGH);
@@ -133,11 +111,6 @@ void fecharMotor() {
 
   pararMotor();
 }
-
-
-// =====================================================
-// SETUP
-// =====================================================
 
 void setup() {
 
@@ -181,30 +154,20 @@ void setup() {
   Serial.println();
 }
 
-
-// =====================================================
-// LOOP
-// =====================================================
-
 void loop() {
 
   sensors_event_t a, g, temp;
 
   mpu.getEvent(&a, &g, &temp);
 
-
-  // ===================================================
-  // GIROSCÓPIO
-  // ===================================================
+// =======================
 
   float gx = g.gyro.x;
   float gy = g.gyro.y;
   float gz = g.gyro.z;
 
-
-  // ===================================================
-  // FILTRO DO EIXO Z
-  // ===================================================
+// ==================
+// FILTRO DO EIXO Z
 
   gyroFiltrado =
     gyroFiltrado * (1.0 - FILTRO)
@@ -212,9 +175,8 @@ void loop() {
     gz * FILTRO;
 
 
-  // ===================================================
-  // MONITOR SERIAL
-  // ===================================================
+  // ========================
+  // CONTROLE DE POSIÇÕES
 
   Serial.print("GX: ");
   Serial.print(gx, 2);
@@ -229,9 +191,8 @@ void loop() {
   Serial.println(gyroFiltrado, 2);
 
 
-  // ===================================================
-  // ESPERA DE 2,5 SEGUNDOS
-  // ===================================================
+  // ==================
+  // TEMPO DE ESPERA
 
   if (millis() - ultimoComando < TEMPO_ESPERA) {
 
@@ -244,9 +205,8 @@ void loop() {
   }
 
 
-  // ===================================================
+  // ==============
   // GIRO POSITIVO
-  // ===================================================
 
   if (gyroFiltrado > LIMITE_GIRO) {
 
@@ -258,9 +218,8 @@ void loop() {
   }
 
 
-  // ===================================================
+  // ================
   // GIRO NEGATIVO
-  // ===================================================
 
   else if (gyroFiltrado < -LIMITE_GIRO) {
 
@@ -271,21 +230,11 @@ void loop() {
     Serial.println(contadorNegativo);
   }
 
-
-  // ===================================================
-  // SEM GIRO
-  // ===================================================
-
   else {
 
     contadorPositivo = 0;
     contadorNegativo = 0;
   }
-
-
-  // ===================================================
-  // POSITIVO = ABRIR
-  // ===================================================
 
   if (contadorPositivo >= CONFIRMACOES) {
 
@@ -300,11 +249,6 @@ void loop() {
 
     return;
   }
-
-
-  // ===================================================
-  // NEGATIVO = FECHAR
-  // ===================================================
 
   if (contadorNegativo >= CONFIRMACOES) {
 
