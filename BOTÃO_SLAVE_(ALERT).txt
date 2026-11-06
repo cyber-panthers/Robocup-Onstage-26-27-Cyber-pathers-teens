@@ -1,29 +1,23 @@
 #include <SoftwareSerial.h>
 
-// ===============================
+// ===========
 // BLUETOOTH
-// ===============================
 SoftwareSerial BT(3, 2);
 
 #define BT_STATE 6
 #define LED_CONEXAO 10
 
-// ===============================
+// ============
 // LEDS
-// ===============================
 #define led1 12
 #define led2 11
 #define led3 9
 #define led4 8
-
-// ===============================
-// BUZZER
-// ===============================
+// ===============
 #define buzzer 7
 
-// ===============================
-// SENSOR ULTRASSÔNICO HC-SR04
-// ===============================
+// ==============================
+// SENSOR ULTRASSÔNICO
 #define TRIG 5
 #define ECHO 4
 
@@ -34,9 +28,9 @@ SoftwareSerial BT(3, 2);
 bool conectadoAnterior = false;
 
 
-// =====================================================
+// ================================
 // FUNÇÃO PARA MEDIR DISTÂNCIA
-// =====================================================
+
 long medirDistancia() {
 
   // Garante que o TRIG começa desligado
@@ -63,9 +57,9 @@ long medirDistancia() {
 }
 
 
-// =====================================================
+// ======================
 // FUNÇÃO DE ALERTA
-// =====================================================
+
 void executarAlerta() {
 
   for (int i = 0; i < 2; i++) {
@@ -104,10 +98,6 @@ void executarAlerta() {
   digitalWrite(led4, LOW);
 }
 
-
-// =====================================================
-// SETUP
-// =====================================================
 void setup() {
 
   // Monitor Serial
@@ -116,34 +106,23 @@ void setup() {
   // Bluetooth
   BT.begin(9600);
 
-  // ===============================
+  // =========
   // LEDs
-  // ===============================
+
   pinMode(led1, OUTPUT);
   pinMode(led2, OUTPUT);
   pinMode(led3, OUTPUT);
   pinMode(led4, OUTPUT);
-
-  // ===============================
-  // Buzzer
-  // ===============================
+// =======================
   pinMode(buzzer, OUTPUT);
-
-  // ===============================
-  // Bluetooth
-  // ===============================
+// =======================
   pinMode(BT_STATE, INPUT);
+// =======================
   pinMode(LED_CONEXAO, OUTPUT);
-
-  // ===============================
-  // Sensor ultrassônico
-  // ===============================
+// =============================
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
-
-  // ===============================
-  // Estado inicial
-  // ===============================
+// ===============================
   digitalWrite(led1, LOW);
   digitalWrite(led2, LOW);
   digitalWrite(led3, LOW);
@@ -158,15 +137,10 @@ void setup() {
   Serial.println("Sistema iniciado!");
 }
 
-
-// =====================================================
-// LOOP PRINCIPAL
-// =====================================================
 void loop() {
 
-  // ===================================================
+  // =============
   // BLUETOOTH
-  // ===================================================
 
   bool conectado = digitalRead(BT_STATE);
 
@@ -186,10 +160,8 @@ void loop() {
     conectadoAnterior = conectado;
   }
 
-
-  // ===================================================
+  // ============================
   // RECEBER COMANDO BLUETOOTH
-  // ===================================================
 
   if (BT.available()) {
 
@@ -209,11 +181,6 @@ void loop() {
     }
   }
 
-
-  // ===================================================
-  // SENSOR ULTRASSÔNICO
-  // ===================================================
-
   long distancia = medirDistancia();
 
   Serial.print("Distancia: ");
@@ -221,9 +188,8 @@ void loop() {
   Serial.println(" cm");
 
 
-  // ===================================================
+  // ===================
   // ALERTA DO SENSOR
-  // ===================================================
 
   if (distancia <= DISTANCIA_ALERTA) {
 
@@ -239,6 +205,6 @@ void loop() {
   }
 
 
-  // Pequena pausa entre as medições
+  // Pequena pausa
   delay(100);
 }
