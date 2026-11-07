@@ -1,23 +1,20 @@
 #include <SoftwareSerial.h>
 
-// ===========
-// BLUETOOTH
+// Bluetooth
 SoftwareSerial BT(3, 2);
 
 #define BT_STATE 6
 #define LED_CONEXAO 10
 
-// ============
-// LEDS
+// LEDs
 #define led1 12
 #define led2 11
 #define led3 9
 #define led4 8
-// ===============
+
 #define buzzer 7
 
-// ==============================
-// SENSOR ULTRASSÔNICO
+// Sensor ultrassônico
 #define TRIG 5
 #define ECHO 4
 
@@ -26,10 +23,6 @@ SoftwareSerial BT(3, 2);
 
 // Guarda o estado anterior do Bluetooth
 bool conectadoAnterior = false;
-
-
-// ================================
-// FUNÇÃO PARA MEDIR DISTÂNCIA
 
 long medirDistancia() {
 
@@ -56,18 +49,12 @@ long medirDistancia() {
   return distancia;
 }
 
-
-// ======================
-// FUNÇÃO DE ALERTA
-
 void executarAlerta() {
 
   for (int i = 0; i < 2; i++) {
 
-    // Liga buzzer
     tone(buzzer, 500);
 
-    // Liga LEDs 1 e 3
     digitalWrite(led1, HIGH);
     digitalWrite(led3, HIGH);
 
@@ -76,10 +63,8 @@ void executarAlerta() {
 
     delay(500);
 
-    // Desliga buzzer
     noTone(buzzer);
 
-    // Liga LEDs 2 e 4
     digitalWrite(led1, LOW);
     digitalWrite(led3, LOW);
 
@@ -89,7 +74,6 @@ void executarAlerta() {
     delay(500);
   }
 
-  // Desliga tudo no final
   noTone(buzzer);
 
   digitalWrite(led1, LOW);
@@ -100,29 +84,26 @@ void executarAlerta() {
 
 void setup() {
 
-  // Monitor Serial
   Serial.begin(9600);
 
   // Bluetooth
   BT.begin(9600);
 
-  // =========
   // LEDs
-
   pinMode(led1, OUTPUT);
   pinMode(led2, OUTPUT);
   pinMode(led3, OUTPUT);
   pinMode(led4, OUTPUT);
-// =======================
+
   pinMode(buzzer, OUTPUT);
-// =======================
+
   pinMode(BT_STATE, INPUT);
-// =======================
+
   pinMode(LED_CONEXAO, OUTPUT);
-// =============================
+
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
-// ===============================
+
   digitalWrite(led1, LOW);
   digitalWrite(led2, LOW);
   digitalWrite(led3, LOW);
@@ -139,15 +120,11 @@ void setup() {
 
 void loop() {
 
-  // =============
-  // BLUETOOTH
-
+  // Bluetooth
   bool conectado = digitalRead(BT_STATE);
 
-  // LED de conexão Bluetooth
   digitalWrite(LED_CONEXAO, conectado);
 
-  // Verifica mudança no estado da conexão
   if (conectado != conectadoAnterior) {
 
     if (conectado) {
@@ -160,9 +137,6 @@ void loop() {
     conectadoAnterior = conectado;
   }
 
-  // ============================
-  // RECEBER COMANDO BLUETOOTH
-
   if (BT.available()) {
 
     char c = BT.read();
@@ -170,13 +144,11 @@ void loop() {
     Serial.print("Recebido: ");
     Serial.println(c);
 
-    // Se receber A
     if (c == 'A') {
 
       // Responde K pelo Bluetooth
       BT.write('K');
 
-      // Executa alerta
       executarAlerta();
     }
   }
@@ -187,24 +159,16 @@ void loop() {
   Serial.print(distancia);
   Serial.println(" cm");
 
-
-  // ===================
-  // ALERTA DO SENSOR
-
   if (distancia <= DISTANCIA_ALERTA) {
 
     Serial.println("!!! OBJETO DETECTADO !!!");
 
-    // Envia aviso pelo Bluetooth
     if (conectado) {
       BT.println("ALERTA: OBJETO DETECTADO!");
     }
 
-    // Executa alerta
     executarAlerta();
   }
 
-
-  // Pequena pausa
   delay(100);
 }
