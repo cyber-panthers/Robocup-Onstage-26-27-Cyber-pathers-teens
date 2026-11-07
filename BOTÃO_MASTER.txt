@@ -1,52 +1,33 @@
 #include <SoftwareSerial.h>
 #include <Adafruit_NeoPixel.h>
-// =====================
-// BLUETOOTH HC-05
 
+// Bluetooth HC-05
 SoftwareSerial BT(3, 2);
 
-// HC-05
 #define BT_STATE 8
 #define LED_CONEXAO 13
 
-
-// ==============
-// FITA LED
-
+// Fita LED
 #define LED_PIN 5
 #define NUM_LEDS 87
 
 Adafruit_NeoPixel fita(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-
-// ===========================
-// SENSOR ULTRASSÔNICO 1
-
+// Sensor ultrassônico 1
 const int trigPin1 = 7;
 const int echoPin1 = 6;
 
 // Distância para ativar o sensor 1
 const float LIMITE_SENSOR1 = 10.0;
 
-
-// ============================
-// SENSOR ULTRASSÔNICO 2
-
+// Sensor ultrassônico 2
 const int trigPin2 = 11;
 const int echoPin2 = 10;
 
 // Distância para ativar o sensor 2
 const float LIMITE_SENSOR2 = 5.0;
 
-
-// ==============
-// CONTROLE
-
 bool enviado = false;
-
-
-// ===================
-// MEDIR DISTÂNCIA
 
 float distancia(int trigPin, int echoPin) {
 
@@ -70,20 +51,14 @@ float distancia(int trigPin, int echoPin) {
   return distanciaCM;
 }
 
-
-// =========================
-// ACENDER LED POR LED
-
 void acenderLedPorLed() {
 
   Serial.println();
   Serial.println("Acendendo fita LED por LED...");
 
-  // Apaga tudo primeiro
   fita.clear();
   fita.show();
 
-  // Acende um LED por vez
   for (int i = 0; i < NUM_LEDS; i++) {
 
     fita.setPixelColor(i, 255, 0, 0);
@@ -97,16 +72,11 @@ void acenderLedPorLed() {
   Serial.println("Fita totalmente acesa!");
 }
 
-
-// ===============================
-// ENVIAR SINAL PARA O SLAVE
-
 void enviarSinal() {
 
   Serial.println("Enviando sinal A...");
 
-  // Envia 3 vezes para aumentar
-  // a chance de recebimento
+  // Envia 3 vezes para aumentar a chance de recebimento
   for (int i = 0; i < 3; i++) {
 
     BT.write('A');
@@ -117,10 +87,6 @@ void enviarSinal() {
   Serial.println("Sinal A enviado!");
 }
 
-
-// ==================
-// PISCAR FITA
-
 void piscarFita() {
 
   Serial.println("Piscando fita...");
@@ -129,9 +95,7 @@ void piscarFita() {
 
   while (millis() - inicio < 3300) {
 
-    // =========
-    // AZUL
-
+    // Azul
     for (int i = 0; i < NUM_LEDS; i++) {
 
       fita.setPixelColor(
@@ -144,10 +108,7 @@ void piscarFita() {
 
     delay(500);
 
-
-    // =============
-    // VERMELHO
-
+    // Vermelho
     for (int i = 0; i < NUM_LEDS; i++) {
 
       fita.setPixelColor(
@@ -161,19 +122,11 @@ void piscarFita() {
     delay(500);
   }
 
-
-  // ===========
-  // APAGA
-
   fita.clear();
   fita.show();
 
   Serial.println("Fita apagada.");
 }
-
-
-// ======================
-// EXECUTAR SEQUÊNCIA
 
 void executarSequencia() {
 
@@ -182,13 +135,10 @@ void executarSequencia() {
   Serial.println("SEQUENCIA INICIADA");
   Serial.println("==============================");
 
-  // Acende os LEDs
   acenderLedPorLed();
 
-  // Envia sinal pelo Bluetooth
   enviarSinal();
 
-  // Pisca azul e vermelho
   piscarFita();
 
   Serial.println();
@@ -196,45 +146,29 @@ void executarSequencia() {
   Serial.println("==============================");
 }
 
-
-// ========
-// SETUP
-
 void setup() {
 
   Serial.begin(9600);
   BT.begin(9600);
 
-  // ===========
-  // SENSOR 1
-
+  // Sensor 1
   pinMode(trigPin1, OUTPUT);
   pinMode(echoPin1, INPUT);
 
-
-  // ===========
-  // SENSOR 2
-
+  // Sensor 2
   pinMode(trigPin2, OUTPUT);
   pinMode(echoPin2, INPUT);
 
-
-  // ============
-  // BLUETOOTH
-
+  // Bluetooth
   pinMode(BT_STATE, INPUT);
   pinMode(LED_CONEXAO, OUTPUT);
 
-
-  // ================
-  // FITA LED
-
+  // Fita LED
   fita.begin();
 
   fita.clear();
 
   fita.show();
-// ===========================
 
   Serial.println();
   Serial.println("==============================");
@@ -246,9 +180,7 @@ void setup() {
 
 void loop() {
 
-  // =============
-  // BLUETOOTH
-
+  // Bluetooth
   bool conectado = digitalRead(BT_STATE);
 
   digitalWrite(
@@ -256,31 +188,18 @@ void loop() {
     conectado
   );
 
-
-  // ========================
-  // DISTÂNCIA SENSOR 1
-
   float dist1 = distancia(
     trigPin1,
     echoPin1
   );
 
-
-  //pausa para evitar interferência
+  // Pausa para evitar interferência
   delay(5);
-
-
-  // ========================
-  // DISTÂNCIA SENSOR 2
 
   float dist2 = distancia(
     trigPin2,
     echoPin2
   );
-
-
-  // =================
-  // MOSTRAR SENSOR 
 
   Serial.print("Sensor 1: ");
 
@@ -294,10 +213,6 @@ void loop() {
     Serial.print(" cm");
   }
 
-
-  // ====================
-  // MOSTRAR SENSOR 2
-
   Serial.print(" | Sensor 2: ");
 
   if (dist2 >= 999) {
@@ -310,10 +225,6 @@ void loop() {
     Serial.print(" cm");
   }
 
-
-  // =======================
-  // MOSTRAR BLUETOOTH
-
   Serial.print(" | Bluetooth: ");
 
   if (conectado) {
@@ -324,7 +235,7 @@ void loop() {
 
     Serial.println("DESCONECTADO");
   }
-// ==================================
+
   if (
     (dist1 <= LIMITE_SENSOR1 ||
      dist2 <= LIMITE_SENSOR2)
@@ -337,17 +248,12 @@ void loop() {
     Serial.println();
     Serial.println(">>> OBJETO DETECTADO! <<<");
 
-
-    // =================================
-    // INFORMAR QUAL SENSOR DETECTOU
-
     if (dist1 <= LIMITE_SENSOR1) {
 
       Serial.println(
         ">>> SENSOR 1 ATIVOU! (<= 10 cm)"
       );
     }
-
 
     if (dist2 <= LIMITE_SENSOR2) {
 
@@ -356,13 +262,9 @@ void loop() {
       );
     }
 
-
-    // ========================
-    // EXECUTAR SEQUÊNCIA
-
     executarSequencia();
   }
-// ===============================
+
   if (
     dist1 > 15 &&
     dist2 > 10
@@ -370,10 +272,6 @@ void loop() {
 
     enviado = false;
   }
-
-
-  // ===============
-  // ATUALIZAÇÃO
 
   delay(100);
 }
