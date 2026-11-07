@@ -5,56 +5,36 @@
 
 Adafruit_MPU6050 mpu;
 
-// =========
-// MOTOR
-
+// Motor
 const int MOTOR_ABRIR  = 6;
 const int MOTOR_FECHAR = 7;
 
-
-// =============
-// LEDS FITA
-
+// LEDs fita
 const int PIN_LEDS = 4;
 const int NUM_LEDS = 30;
 
 Adafruit_NeoPixel leds(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
 
-// ===============
-// CONFIGURAÇÃO
-
-
+// Configuração
 const unsigned long TEMPO_ABRIR  = 2500;  // motores abrindo: 2,5 s
 const unsigned long TEMPO_FECHAR = 2500;
 const unsigned long TEMPO_ESPERA = 2500;
 
-// Velocidade mínima de rotação para reconhecer
-// unidade: rad/s
+// Velocidade mínima de rotação para reconhecer (unidade: rad/s)
 const float LIMITE_GIRO = 1.5;
 
 // Quantas leituras precisam confirmar o movimento
 const int CONFIRMACOES = 3;
 
-
-// =========
-// FILTRO
-
+// Filtro
 const float FILTRO = 0.20;
 
 float gyroFiltrado = 0;
-
-
-// ============
-// CONTROLE
 
 int contadorPositivo = 0;
 int contadorNegativo = 0;
 
 unsigned long ultimoComando = 0;
-
-
-// ======
-// LEDS
 
 void ledsAzul() {
 
@@ -71,19 +51,11 @@ void ledsApagar() {
   leds.show();
 }
 
-
-// =============
-// MOTOR PARAR
-
 void pararMotor() {
 
   digitalWrite(MOTOR_ABRIR, LOW);
   digitalWrite(MOTOR_FECHAR, LOW);
 }
-
-
-// =======
-// ABRIR
 
 void abrirMotor() {
 
@@ -97,10 +69,6 @@ void abrirMotor() {
   pararMotor();
   ledsApagar();
 }
-
-
-// ==========
-// FECHAR
 
 void fecharMotor() {
 
@@ -127,9 +95,7 @@ void setup() {
   leds.setBrightness(100);  // 0 a 255
   ledsApagar();
 
-
   Serial.println("Iniciando MPU6050...");
-
 
   if (!mpu.begin()) {
 
@@ -140,11 +106,9 @@ void setup() {
     }
   }
 
-
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
 
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-
 
   Serial.println("MPU6050 encontrado.");
   Serial.println();
@@ -160,23 +124,15 @@ void loop() {
 
   mpu.getEvent(&a, &g, &temp);
 
-// =======================
-
   float gx = g.gyro.x;
   float gy = g.gyro.y;
   float gz = g.gyro.z;
 
-// ==================
-// FILTRO DO EIXO Z
-
+  // Filtro do eixo Z
   gyroFiltrado =
     gyroFiltrado * (1.0 - FILTRO)
     +
     gz * FILTRO;
-
-
-  // ========================
-  // CONTROLE DE POSIÇÕES
 
   Serial.print("GX: ");
   Serial.print(gx, 2);
@@ -190,10 +146,7 @@ void loop() {
   Serial.print(" | GZ filtrado: ");
   Serial.println(gyroFiltrado, 2);
 
-
-  // ==================
-  // TEMPO DE ESPERA
-
+  // Tempo de espera
   if (millis() - ultimoComando < TEMPO_ESPERA) {
 
     contadorPositivo = 0;
@@ -204,10 +157,7 @@ void loop() {
     return;
   }
 
-
-  // ==============
-  // GIRO POSITIVO
-
+  // Giro positivo
   if (gyroFiltrado > LIMITE_GIRO) {
 
     contadorPositivo++;
@@ -217,10 +167,7 @@ void loop() {
     Serial.println(contadorPositivo);
   }
 
-
-  // ================
-  // GIRO NEGATIVO
-
+  // Giro negativo
   else if (gyroFiltrado < -LIMITE_GIRO) {
 
     contadorNegativo++;
@@ -263,7 +210,6 @@ void loop() {
 
     return;
   }
-
 
   delay(15);
 }
