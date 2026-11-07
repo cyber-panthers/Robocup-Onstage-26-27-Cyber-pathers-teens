@@ -34,7 +34,6 @@ bool sinalPendente = false;
 
 Adafruit_NeoPixel fita(NUM_LEDS, PINO_FITA, NEO_GRB + NEO_KHZ800);
 
-//---------------------
 float distancia() {
 
   digitalWrite(trigPin, LOW);
@@ -49,8 +48,6 @@ float distancia() {
 
   return duracao * 0.034 / 2.0;
 }
-
-//------------------
 
 void setup() {
 
@@ -85,8 +82,6 @@ void setup() {
   Serial.println("Sistema iniciado");
 }
 
-//---------------
-
 void loop() {
 
   // LED indica conexão Bluetooth
@@ -102,8 +97,6 @@ void loop() {
   val = analogRead(ldr);
   Serial.println(val);
 
-  //=================
-  // PORTAL ABERTO
   if (val > sensibilidade) {
 
     Serial.println("Portal aberto");
