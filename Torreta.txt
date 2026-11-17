@@ -1,0 +1,128 @@
+
+#include <SoftwareSerial.h>
+#include <Adafruit_NeoPixel.h>
+
+//RX = D7 (fio vindo do D10 da GLaDOS) | TX = D6 (não usado)
+SoftwareSerial comunicacao(7, 6);
+
+//Driver do motor
+#define MOTOR_A 8   //abrir
+#define MOTOR_B 9   //fechar
+
+//Buzzer e LEDs
+const int PIN_BUZZER = 13;
+const int PIN_LEDS = 10;
+const int NUM_LEDS = 8;
+
+Adafruit_NeoPixel leds(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+
+//Tempos
+const unsigned long TEMPO_ABRIR = 3000;
+const unsigned long TEMPO_FECHAR = 3000;
+const unsigned long INTERVALO_EFEITO = 150; //pisca LEDs e buzzer (ms)
+const int FREQ_BUZZER = 1000; //Hz
+
+void ledsCor(uint8_t r, uint8_t g, uint8_t b) {
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds.setPixelColor(i, leds.Color(r, g, b));
+    }
+
+    leds.show();
+}
+
+void pararMotor() {
+    digitalWrite(MOTOR_A, LOW);
+    digitalWrite(MOTOR_B, LOW);
+}
+
+//Buzzer + LEDs + motor (abre 3 s, fecha 3 s) ao mesmo tempo
+void executarSequencia() {
+    unsigned long inicio = millis();
+    unsigned long ultimaTroca = 0;
+    bool ligado = false;
+    unsigned long total = TEMPO_ABRIR + TEMPO_FECHAR;
+
+    //Começa abrindo
+    digitalWrite(MOTOR_A, HIGH);
+    digitalWrite(MOTOR_B, LOW);
+
+    bool fechando = false;
+
+    while (millis() - inicio < total) {
+
+        //Troca para fechar após 3 s
+        if (!fechando && millis() - inicio >= TEMPO_ABRIR) {
+            digitalWrite(MOTOR_A, LOW);
+            digitalWrite(MOTOR_B, HIGH);
+            fechando = true;
+        }
+
+        //Pisca LEDs e buzzer juntos
+        if (millis() - ultimaTroca >= INTERVALO_EFEITO) {
+            ultimaTroca = millis();
+            ligado = !ligado;
+
+            if (ligado) {
+                ledsCor(255, 0, 0);
+                tone(PIN_BUZZER, FREQ_BUZZER);
+            } else {
+                ledsCor(0, 0, 0);
+                noTone(PIN_BUZZER);
+            }
+        }
+    }
+
+    //Desliga tudo
+    pararMotor();
+    noTone(PIN_BUZZER);
+    ledsCor(0, 0, 0);
+
+    //Descarta comandos que chegaram durante a sequência
+    while (comunicacao.available()) {
+        comunicacao.read();
+    }
+
+    while (Serial.available()) {
+        Serial.read();
+    }
+
+    Serial.println("Sequencia concluida!");
+}
+
+void setup() {
+    pinMode(MOTOR_A, OUTPUT);
+    pinMode(MOTOR_B, OUTPUT);
+    pinMode(PIN_BUZZER, OUTPUT);
+
+    pararMotor();
+
+    leds.begin();
+    leds.setBrightness(150);
+    ledsCor(0, 0, 0);
+
+    Serial.begin(9600);
+    comunicacao.begin(9600);
+
+    Serial.println("TURRET pronta. Aguardando 'T'...");
+}
+
+void loop() {
+    if (comunicacao.available()) {
+        char c = comunicacao.read();
+
+        if (c == 'T') {
+            Serial.println("Comando T recebido da GLADOS!");
+            executarSequencia();
+        }
+    }
+
+    //Teste pelo Serial Monitor (digite T)
+    if (Serial.available()) {
+        char c = Serial.read();
+
+        if (c == 'T' || c == 't') {
+            Serial.println("Comando T recebido pelo USB!");
+            executarSequencia();
+        }
+    }
+}
