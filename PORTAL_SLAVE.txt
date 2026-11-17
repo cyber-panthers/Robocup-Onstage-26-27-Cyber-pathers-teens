@@ -39,6 +39,7 @@ void setup() {
   liberador.write(SEGURA);
 
   fita.begin();
+  fita.setBrightness(255);
   fita.clear();
   fita.show();
 }
