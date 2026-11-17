@@ -1,0 +1,128 @@
+import os
+import socket
+import subprocess
+import threading
+import time
+import unicodedata
+
+import cv2
+import mediapipe as mp
+import serial
+
+#CONFIGURAÇÕES GERAIS
+
+PASTA_AUDIOS = "Falas_novas"  #Fala_1.wav ... Fala_7.wav e silencio.wav
+
+IP_PC = "192.168.50.1"
+PORTA_UDP = 5000
+
+PORTA_ARDUINO = "/dev/ttyUSB0"
+BAUDRATE_ARDUINO = 115200
+TIMEOUT_ARDUINO = 20
+
+FRAMES_NECESSARIOS = 20
+TEMPO_ENTRE_GESTOS = 1.0
+
+def normalizar(texto):
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(
+        c for c in texto
+        if unicodedata.category(c) != "Mn"
+    )
+    return texto.strip().lower()
+
+#ARDUINO
+
+class ArduinoPrincipal:
+    def __init__(self, porta, baud, timeout_resposta):
+        self.porta = porta
+        self.baud = baud
+        self.timeout_resposta = timeout_resposta
+        self.ser = None
+
+    def conectar(self):
+        try:
+            self.ser = serial.Serial(
+                self.porta,
+                self.baud,
+                timeout=0.1
+            )
+            time.sleep(2)
+            self.ser.reset_input_buffer()
+            print("[ARDUINO] Conectado!")
+
+        except Exception as erro:
+            print("[ARDUINO] Não conectado:", erro)
+            self.ser = None
+
+    def enviar(self, comando):
+        if self.ser is None:
+            print("[ARDUINO OFFLINE]", comando)
+            return True
+
+        print(">>", comando)
+
+        try:
+            self.ser.reset_input_buffer()
+            self.ser.write((comando + "\n").encode())
+            self.ser.flush()
+
+            inicio = time.time()
+
+            while True:
+                if time.time() - inicio > self.timeout_resposta:
+                    print("[ARDUINO] TIMEOUT no comando:", comando)
+                    return False
+
+                resposta = self.ser.readline().decode(
+                    errors="ignore"
+                ).strip()
+
+                if resposta:
+                    print("Recebido:", repr(resposta))
+
+                    if normalizar(resposta) == "concluido.":
+                        return True
+
+                time.sleep(0.005)
+
+        except Exception as erro:
+            print("[ARDUINO] ERRO:", erro)
+            return False
+
+    def fechar(self):
+        try:
+            if self.ser:
+                self.ser.close()
+        except Exception:
+            pass
+
+arduino = ArduinoPrincipal(
+    PORTA_ARDUINO,
+    BAUDRATE_ARDUINO,
+    TIMEOUT_ARDUINO
+)
+
+#CÂMERA (THREAD PRÓPRIA, REABRE SE TRAVAR)
+
+class Camera:
+    def __init__(self, indice=0):
+        self.indice = indice
+        self.cap = None
+        self.frame = None
+        self.ultimo_frame = time.time()
+        self.lock = threading.Lock()
+        self.rodando = True
+
+        self._abrir()
+
+        self.thread = threading.Thread(
+            target=self._loop,
+            daemon=True
+        )
+        self.thread.start()
+
+    def _abrir(self):
+        if self.cap is not None:
+            self.cap.release()
+            time.sleep(1)
