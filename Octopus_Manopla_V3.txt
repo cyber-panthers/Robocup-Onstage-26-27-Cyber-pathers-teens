@@ -1,0 +1,266 @@
+#include <Wire.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_NeoPixel.h>
+#include <SoftwareSerial.h>
+
+Adafruit_MPU6050 mpu;
+
+// RX = pino 2 (fio vindo do D10 da GLaDOS) | TX = pino 3 (nao usado)
+SoftwareSerial BT(2, 3);
+
+const int MOTOR_ABRIR  = 6;
+const int MOTOR_FECHAR = 5;
+
+const int PIN_LEDS = 4;
+const int NUM_LEDS = 30;
+
+Adafruit_NeoPixel leds(NUM_LEDS, PIN_LEDS, NEO_GRB + NEO_KHZ800);
+
+// Sensor
+const unsigned long TEMPO_ABRIR  = 4000;
+const unsigned long TEMPO_FECHAR = 4000;
+const unsigned long TEMPO_ESPERA = 4000;
+
+// Sinais da GLaDOS
+const unsigned long TEMPO_B_LEDS   = 3000;
+const unsigned long TEMPO_B_MOTOR  = 00;
+const unsigned long INTERVALO_PISCA = 100;
+const unsigned long TEMPO_B1       = 3000;  // fecha por 3 s
+const unsigned long TEMPO_B2       = 5000;  // fecha por 5 s
+
+const float LIMITE_GIRO = 1.5;
+const int CONFIRMACOES = 3;
+const float FILTRO = 0.20;
+
+float gyroFiltrado = 0;
+int contadorPositivo = 0;
+int contadorNegativo = 0;
+unsigned long ultimoComando = 0;
+
+String linha = "";
+
+void ledsCor(uint8_t r, uint8_t g, uint8_t b) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds.setPixelColor(i, leds.Color(r, g, b));
+  }
+  leds.show();
+}
+
+void ledsAzul()     { ledsCor(0, 0, 255); }
+void ledsVermelho() { ledsCor(255, 0, 0); }
+
+void ledsApagar() {
+  leds.clear();
+  leds.show();
+}
+
+void pararMotor() {
+  digitalWrite(MOTOR_ABRIR, LOW);
+  digitalWrite(MOTOR_FECHAR, LOW);
+}
+
+void abrirMotor() {
+  Serial.println(">>> MOTOR ABRINDO");
+  ledsAzul();
+  digitalWrite(MOTOR_ABRIR, HIGH);
+  digitalWrite(MOTOR_FECHAR, LOW);
+  delay(TEMPO_ABRIR);
+  pararMotor();
+  ledsAzul();
+}
+
+void fecharMotor() {
+  Serial.println(">>> MOTOR FECHANDO");
+  ledsAzul();   // sensor: LEDs azuis, nunca vermelho
+  digitalWrite(MOTOR_ABRIR, LOW);
+  digitalWrite(MOTOR_FECHAR, HIGH);
+  delay(TEMPO_FECHAR);
+  pararMotor();
+  ledsAzul();
+}
+
+// "B": LEDs piscam azul/vermelho por 3 s, motor ativo por 2,5 s
+void sinalB() {
+  Serial.println("SINAL B");
+
+  unsigned long inicio = millis();
+  unsigned long ultimaTroca = 0;
+  bool motorLigado = true;
+  bool corAzul = false;
+
+  digitalWrite(MOTOR_ABRIR, HIGH);
+  digitalWrite(MOTOR_FECHAR, LOW);
+
+  while (millis() - inicio < TEMPO_B_LEDS) {
+    if (motorLigado && millis() - inicio >= TEMPO_B_MOTOR) {
+      pararMotor();
+      motorLigado = false;
+    }
+
+    if (millis() - ultimaTroca >= INTERVALO_PISCA) {
+      ultimaTroca = millis();
+      corAzul = !corAzul;
+      if (corAzul) ledsAzul();
+      else ledsVermelho();
+    }
+  }
+
+  pararMotor();
+  ledsAzul();
+}
+
+// "B1": LEDs piscando sem controle + bracos fecham por 3 s
+void sinalB1() {
+  Serial.println("SINAL B1");
+
+  unsigned long inicio = millis();
+
+  digitalWrite(MOTOR_ABRIR, LOW);
+  digitalWrite(MOTOR_FECHAR, HIGH);
+
+  while (millis() - inicio < TEMPO_B1) {
+    ledsCor(random(0, 2) * 255, random(0, 2) * 255, random(0, 2) * 255);
+    delay(40);
+  }
+
+  pararMotor();
+  ledsAzul();
+}
+
+// "B2": LEDs vermelhos + bracos fecham por 5 s
+void sinalB2() {
+  Serial.println("SINAL B2");
+
+  ledsVermelho();
+  digitalWrite(MOTOR_ABRIR, LOW);
+  digitalWrite(MOTOR_FECHAR, HIGH);
+  delay(TEMPO_B2);
+
+  pararMotor();
+  ledsAzul();
+}
+
+void finalizarComando() {
+  contadorPositivo = 0;
+  contadorNegativo = 0;
+  linha = "";
+
+  while (BT.available()) {
+    BT.read();
+  }
+
+  ultimoComando = millis();
+}
+
+// Retorna true se executou algo
+bool processarLinha(String cmd) {
+  cmd.trim();
+  cmd.toUpperCase();
+
+  if (cmd == "B")  { sinalB();  return true; }
+  if (cmd == "B1") { sinalB1(); return true; }
+  if (cmd == "B2") { sinalB2(); return true; }
+  if (cmd == "A")  { abrirMotor();  return true; }
+  if (cmd == "F")  { fecharMotor(); return true; }
+  if (cmd == "P")  { pararMotor(); ledsAzul(); return true; }
+
+  return false;  // "T" e outros: ignora
+}
+
+void lerBluetooth() {
+  while (BT.available()) {
+    char c = BT.read();
+
+    if (c == '\n' || c == '\r') {
+      if (linha.length() > 0) {
+        String cmd = linha;
+        linha = "";
+        if (processarLinha(cmd)) {
+          finalizarComando();
+          return;
+        }
+      }
+    }
+    else if (linha.length() < 8) {
+      linha += c;
+    }
+    else {
+      linha = "";  // lixo: descarta
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  BT.begin(9600);
+
+  Wire.begin();
+
+  pinMode(MOTOR_ABRIR, OUTPUT);
+  pinMode(MOTOR_FECHAR, OUTPUT);
+  pararMotor();
+
+  leds.begin();
+  leds.setBrightness(100);
+  ledsApagar();
+  ledsAzul();
+
+  randomSeed(analogRead(A0));
+
+  if (!mpu.begin()) {
+    Serial.println("ERRO: MPU6050 nao encontrado!");
+    while (1) {
+      delay(100);
+    }
+  }
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+
+  Serial.println("SISTEMA PRONTO");
+}
+
+void loop() {
+  lerBluetooth();
+
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  float gz = g.gyro.z;
+  gyroFiltrado = gyroFiltrado * (1.0 - FILTRO) + gz * FILTRO;
+
+  if (millis() - ultimoComando < TEMPO_ESPERA) {
+    contadorPositivo = 0;
+    contadorNegativo = 0;
+    delay(15);
+    return;
+  }
+
+  if (gyroFiltrado > LIMITE_GIRO) {
+    contadorPositivo++;
+    contadorNegativo = 0;
+  }
+  else if (gyroFiltrado < -LIMITE_GIRO) {
+    contadorNegativo++;
+    contadorPositivo = 0;
+  }
+  else {
+    contadorPositivo = 0;
+    contadorNegativo = 0;
+  }
+
+  if (contadorPositivo >= CONFIRMACOES) {
+    abrirMotor();
+    finalizarComando();
+    return;
+  }
+
+  if (contadorNegativo >= CONFIRMACOES) {
+    fecharMotor();
+    finalizarComando();
+    return;
+  }
+
+  delay(15);
+}
