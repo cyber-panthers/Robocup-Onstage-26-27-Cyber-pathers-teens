@@ -1,0 +1,280 @@
+
+#include <Adafruit_NeoPixel.h>
+#include <SoftwareSerial.h>
+
+// D10 (TX) -> D7 da torreta e pino 2 do braço.
+
+SoftwareSerial comunicacaoTorreta(9, 10);
+
+// Pinos
+
+const int pinoStepZ = 4;
+const int pinoDirZ = 7;
+const int pinoEnable = 8;
+
+const int pinoIN1_EV3 = 12;
+const int pinoIN2_EV3 = 13;
+
+const int pinoFita = 11;
+
+const int quantidadeLEDs = 8;
+const int quantidadeLEDsMetade = quantidadeLEDs / 2;
+
+Adafruit_NeoPixel fita(
+  quantidadeLEDs,
+  pinoFita,
+  NEO_GRB + NEO_KHZ800
+);
+
+
+const bool ESQUERDA = HIGH;
+const bool DIREITA = LOW;
+
+// Cor
+void definirCor(uint8_t r, uint8_t g, uint8_t b) {
+  for (int i = 0; i < quantidadeLEDs; i++) {
+    fita.setPixelColor(i, fita.Color(r, g, b));
+  }
+
+  fita.show();
+}
+
+void ligarFitaAzul() {
+  definirCor(0, 0, 255);
+}
+
+void ligarFitaLaranja() {
+  definirCor(255, 154, 0);
+}
+
+void ligarFitaBranca() {
+  definirCor(255, 255, 255);
+}
+
+void ligarFitaVermelha() {
+  definirCor(255, 0, 0);
+}
+
+void ligarFitaRoxa() {
+  definirCor(255, 0, 255);
+}
+
+void ligarMetade() {
+  for (int i = 0; i < quantidadeLEDs; i++) {
+    if (i < quantidadeLEDsMetade) {
+      fita.setPixelColor(i, fita.Color(255, 154, 0));
+    } else {
+      fita.setPixelColor(i, fita.Color(0, 0, 0));
+    }
+  }
+
+  fita.show();
+}
+
+void desligarFita() {
+  definirCor(0, 0, 0);
+}
+
+void apagarLaranjaSuave() {
+  for (int brilho = 255; brilho >= 0; brilho -= 5) {
+    fita.setBrightness(brilho);
+    fita.show();
+    delay(20);
+  }
+
+  desligarFita();
+  fita.setBrightness(255);
+}
+
+// Nema
+void moverNema(int passos, bool direcao, int velocidade) {
+  digitalWrite(pinoDirZ, direcao);
+
+  for (int i = 0; i < passos; i++) {
+    digitalWrite(pinoStepZ, HIGH);
+    delayMicroseconds(10);
+
+    digitalWrite(pinoStepZ, LOW);
+    delayMicroseconds(velocidade);
+  }
+}
+
+// EV3
+void frenteEV3() {
+  digitalWrite(pinoIN1_EV3, HIGH);
+  digitalWrite(pinoIN2_EV3, LOW);
+}
+
+void trasEV3() {
+  digitalWrite(pinoIN1_EV3, LOW);
+  digitalWrite(pinoIN2_EV3, HIGH);
+}
+
+void pararEV3() {
+  digitalWrite(pinoIN1_EV3, LOW);
+  digitalWrite(pinoIN2_EV3, LOW);
+}
+
+void moverEV3(bool direcao, int tempo) {
+  if (direcao == DIREITA) {
+    frenteEV3();
+  } else {
+    trasEV3();
+  }
+
+  delay(tempo);
+  pararEV3();
+}
+
+// Ativar torreta
+
+void acionarTorreta() {
+  comunicacaoTorreta.print("T");
+  comunicacaoTorreta.write('\n');
+  comunicacaoTorreta.flush();
+
+  Serial.println("T enviado.");
+}
+
+// Braços: envia "B1" ou "B2" - fechar/abrir
+
+void acionarBracos(String sinal) {
+  comunicacaoTorreta.print(sinal);
+  comunicacaoTorreta.write('\n');
+  comunicacaoTorreta.flush();
+
+  Serial.print("Enviado aos bracos: ");
+  Serial.println(sinal);
+}
+
+void setup() {
+  pinMode(pinoStepZ, OUTPUT);
+  pinMode(pinoDirZ, OUTPUT);
+  pinMode(pinoEnable, OUTPUT);
+
+  digitalWrite(pinoEnable, LOW);
+
+  pinMode(pinoIN1_EV3, OUTPUT);
+  pinMode(pinoIN2_EV3, OUTPUT);
+
+  pararEV3();
+
+  fita.begin();
+  fita.setBrightness(255);
+  desligarFita();
+
+  Serial.begin(115200);
+  comunicacaoTorreta.begin(9600);
+
+  Serial.println("=== CONTROLE DA GLADOS ===");
+}
+
+void loop() {
+  if (!Serial.available()) {
+    return;
+  }
+
+  String comando = Serial.readStringUntil('\n');
+  comando.trim();
+
+  if (comando == "TORRETA") {
+    acionarTorreta();
+  }
+
+  else if (comando.startsWith("BRACOS")) {
+    String sinal = comando.substring(6);
+    sinal.trim();
+
+    if (sinal == "") {
+      sinal = "B";
+    }
+
+    acionarBracos(sinal);
+  }
+
+  else if (comando.startsWith("NEMA")) {
+    int passos, velocidade;
+    char dir;
+
+    if (sscanf(comando.c_str(), "NEMA %d %d %c", &passos, &velocidade, &dir) == 3) {
+      if (passos < 0 || velocidade < 1 || (dir != 'D' && dir != 'E')) {
+        Serial.println("Parametros NEMA invalidos.");
+      } else {
+        moverNema(
+          passos,
+          (dir == 'D') ? DIREITA : ESQUERDA,
+          velocidade
+        );
+      }
+    } else {
+      Serial.println("Formato invalido. Use: NEMA passos velocidade D/E");
+    }
+  }
+
+  else if (comando.startsWith("EV3")) {
+    int tempo;
+    char dir;
+
+    if (sscanf(comando.c_str(), "EV3 %d %c", &tempo, &dir) == 2) {
+      if (tempo < 0 || (dir != 'D' && dir != 'E')) {
+        Serial.println("Parametros EV3 invalidos.");
+      } else {
+        moverEV3(
+          (dir == 'D') ? DIREITA : ESQUERDA,
+          tempo
+        );
+      }
+    } else {
+      Serial.println("Formato invalido. Use: EV3 tempo D/E");
+    }
+  }
+
+  // Leds
+
+  else if (comando == "LED ONA") {
+    ligarFitaAzul();
+  }
+
+  else if (comando == "LED OFFA") {
+    desligarFita();
+  }
+
+  else if (comando == "LED ONV") {
+    ligarFitaVermelha();
+  }
+
+  else if (comando == "LED OFFV") {
+    desligarFita();
+  }
+
+  else if (comando == "LED ONL") {
+    ligarFitaLaranja();
+  }
+
+  else if (comando == "LED OFFL") {
+    apagarLaranjaSuave();
+  }
+
+  else if (comando == "LED ONB") {
+    ligarFitaBranca();
+  }
+
+  else if (comando == "LEDS ON") {
+    ligarFitaRoxa();
+  }
+
+  else if (comando == "LEDS OFF" || comando == "LED MORRE") {
+    desligarFita();
+  }
+
+  else if (comando == "LED METADE") {
+    ligarMetade();
+  }
+
+  else {
+    Serial.println("Comando invalido.");
+    return;
+  }
+
+  Serial.println("Concluido.");
+}
